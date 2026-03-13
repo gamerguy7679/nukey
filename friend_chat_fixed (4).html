@@ -1,0 +1,1418 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Friend Chat</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="https://meet.jitsi.org/external_api.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'DM Sans', sans-serif; }
+    .chat-gradient { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+    .message-in { background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%); }
+    .message-out { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .friend-card:hover { transform: translateY(-2px); }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-slide { animation: slideIn 0.3s ease-out; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .loading-pulse { animation: pulse 1.5s ease-in-out infinite; }
+    .game-board { display: grid; gap: 2px; background: #000; padding: 8px; border-radius: 8px; }
+    .chess-piece { font-size: 28px; display: flex; align-items: center; justify-content: center; }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full">
+  <div id="app" class="h-full chat-gradient flex flex-col overflow-auto"><!-- Login/Register View -->
+   <div id="auth-view" class="flex-1 flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+     <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-white mb-2">Friend Chat</h1>
+      <p class="text-gray-400">Connect with your friends</p>
+     </div>
+     <div id="login-form-container" class="bg-black/40 rounded-2xl p-6 border border-white/10">
+      <h2 class="text-xl font-bold text-white mb-4">Login</h2>
+      <form id="login-form">
+       <input type="text" id="login-username" placeholder="Username" class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50" required> <input type="password" id="login-password" placeholder="Password" class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500/50" required> <button type="submit" class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white py-3 rounded-lg font-medium transition-all mb-3">Login</button>
+       <p class="text-gray-400 text-center text-sm mb-3">Don't have an account?</p><button type="button" id="show-register" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-lg font-medium transition-all" onclick="document.getElementById('login-form-container').classList.add('hidden'); document.getElementById('register-form-container').classList.remove('hidden'); return false;">Create Account</button>
+      </form>
+      <div id="login-error" class="text-red-400 text-sm mt-3 hidden"></div>
+     </div>
+     <div id="register-form-container" class="bg-black/40 rounded-2xl p-6 border border-white/10 hidden">
+      <h2 class="text-xl font-bold text-white mb-4">Create Account</h2>
+      <form id="register-form">
+       <input type="text" id="register-name" placeholder="Your Name" class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50" required> <input type="text" id="register-username" placeholder="Username" class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50" required> <input type="password" id="register-password" placeholder="Password" class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-3 mb-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50" required>
+       <div class="mb-4">
+        <p class="text-sm text-gray-400 mb-2">Choose avatar color</p>
+        <div id="register-color-options" class="flex gap-2 flex-wrap">
+         <button type="button" data-color="from-pink-500 to-rose-500" class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 ring-2 ring-white ring-offset-2 ring-offset-gray-800"></button> <button type="button" data-color="from-purple-500 to-indigo-500" class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 hover:ring-2 hover:ring-white/50"></button> <button type="button" data-color="from-blue-500 to-cyan-500" class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 hover:ring-2 hover:ring-white/50"></button> <button type="button" data-color="from-emerald-500 to-teal-500" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 hover:ring-2 hover:ring-white/50"></button> <button type="button" data-color="from-orange-500 to-amber-500" class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 hover:ring-2 hover:ring-white/50"></button> <button type="button" data-color="from-red-500 to-pink-500" class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-pink-500 hover:ring-2 hover:ring-white/50"></button>
+        </div>
+       </div><button type="submit" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-lg font-medium transition-all mb-3">Create Account</button>
+       <p class="text-gray-400 text-center text-sm">Already have an account? <button type="button" id="show-login" onclick="document.getElementById('login-form-container').classList.remove('hidden'); document.getElementById('register-form-container').classList.add('hidden'); return false;" class="text-purple-400 hover:text-purple-300 font-medium">Login</button></p>
+      </form>
+      <div id="register-error" class="text-red-400 text-sm mt-3 hidden"></div>
+     </div>
+    </div>
+   </div><!-- Chat View -->
+   <div id="chat-app" class="h-full chat-gradient flex flex-col overflow-hidden hidden"><!-- Header -->
+    <header class="flex-shrink-0 px-4 py-3 border-b border-white/10 flex items-center justify-between">
+     <div class="flex items-center gap-3">
+      <h1 id="app-title" class="text-xl font-bold text-white">Friend Chat</h1><span id="current-user" class="text-sm text-gray-400"></span>
+     </div>
+     <div class="flex items-center gap-2">
+      <button id="add-friend-btn" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2">
+       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+       </svg> Add Friend </button> <button id="logout-btn" class="bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-all">Logout</button>
+     </div>
+    </header><!-- Storage Bar -->
+    <div class="flex-shrink-0 px-4 py-3 bg-black/30 border-b border-white/10">
+     <div class="flex items-center justify-between mb-2">
+      <p class="text-sm text-gray-400">Message Storage</p>
+      <p id="storage-count" class="text-sm text-white font-medium">0/1000 messages</p>
+     </div>
+     <div class="w-full h-2 bg-black/50 rounded-full overflow-hidden">
+      <div id="storage-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all" style="width: 0%;"></div>
+     </div>
+     <p id="storage-warning" class="text-xs text-yellow-400 mt-2 hidden">?? Message limit approaching! Friends and chat will be hidden when you reach 1000 messages.</p>
+    </div><!-- Main Content -->
+    <div id="main-content" class="flex-1 flex overflow-hidden min-h-0"><!-- Friends List Sidebar -->
+     <aside id="sidebar" class="w-80 border-r border-white/10 flex flex-col bg-black/20">
+      <div class="p-3 border-b border-white/10"><input type="text" id="search-friends" placeholder="Search friends..." class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50">
+      </div>
+      <div id="friends-list" class="flex-1 overflow-y-auto scrollbar-thin p-2 space-y-1"><!-- Friends will be rendered here -->
+       <div id="no-friends" class="text-center py-12 text-gray-400">
+        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a5 5 0 11-10 0 5 5 0 0110 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <p class="font-medium">No friends yet</p>
+        <p class="text-sm mt-1">Click "Add Friend" to start chatting!</p>
+       </div>
+      </div>
+     </aside><!-- Chat Area -->
+     <main class="flex-1 flex flex-col min-w-0"><!-- No Chat Selected State -->
+      <div id="no-chat-selected" class="flex-1 flex items-center justify-center text-gray-400">
+       <div class="text-center">
+        <svg class="w-24 h-24 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        <p class="text-lg font-medium">Select a friend to start chatting</p>
+        <p class="text-sm mt-1">Your conversations will appear here</p>
+       </div>
+      </div><!-- Storage Limit Reached -->
+      <div id="storage-limit-reached" class="flex-1 flex items-center justify-center text-gray-400 hidden">
+       <div class="text-center">
+        <svg class="w-24 h-24 mx-auto mb-4 text-red-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p class="text-lg font-medium text-white">Storage Limit Reached</p>
+        <p class="text-sm mt-1">You've reached 1000 messages. Delete some messages to continue chatting.</p><button id="manage-messages-btn" class="mt-4 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-6 py-2 rounded-lg font-medium transition-all">Delete Messages</button>
+       </div>
+      </div><!-- Active Chat View (hidden by default) -->
+      <div id="chat-view" class="flex-1 flex flex-col hidden"><!-- Chat Header -->
+       <div id="chat-header" class="flex-shrink-0 px-4 py-3 border-b border-white/10 flex items-center gap-3 bg-black/20"><button id="back-btn" class="md:hidden text-gray-400 hover:text-white p-1">
+         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+         </svg></button>
+        <div id="chat-avatar" class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white bg-gradient-to-br from-pink-500 to-rose-500"></div>
+        <div class="flex-1 min-w-0">
+         <h2 id="chat-name" class="font-semibold text-white truncate"></h2>
+         <p id="call-status" class="text-xs text-gray-400">Online</p>
+        </div><button id="call-btn" class="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2">
+         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+         </svg> Call </button><button id="games-btn" class="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all">Games</button> <button id="delete-friend-btn" class="text-gray-400 hover:text-red-400 p-2 transition-colors" title="Delete friend">
+         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+         </svg></button>
+       </div><!-- Messages Container -->
+       <div id="messages-container" class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3"><!-- Messages will be rendered here -->
+       </div><!-- Message Input -->
+       <div class="flex-shrink-0 p-4 border-t border-white/10 bg-black/20">
+        <form id="message-form" class="flex gap-3"><input type="text" id="message-input" placeholder="Type a message..." class="flex-1 bg-white/10 text-white placeholder-gray-400 rounded-full px-5 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50" autocomplete="off"> <button type="submit" id="send-btn" class="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white px-6 py-3 rounded-full font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"> <span>Send</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg></button>
+        </form>
+       </div>
+      </div>
+     </main>
+    </div>
+   </div>
+  </div><!-- Add Friend Modal -->
+  <div id="add-friend-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+   <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-white/10 animate-slide">
+    <h3 class="text-xl font-bold text-white mb-4">Add New Friend</h3>
+    <form id="add-friend-form"><input type="text" id="friend-name-input" placeholder="Enter friend's name" class="w-full bg-white/10 text-white placeholder-gray-400 rounded-lg px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-purple-500/50" required>
+     <div class="flex gap-3"><button type="button" id="cancel-add-friend" class="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-colors">Cancel</button> <button type="submit" id="confirm-add-friend" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-lg font-medium transition-all disabled:opacity-50">Add Friend</button>
+     </div>
+    </form>
+   </div>
+  </div><!-- Delete Confirmation -->
+  <div id="delete-confirm" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+   <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-2xl border border-white/10 animate-slide">
+    <h3 class="text-xl font-bold text-white mb-2">Delete Friend?</h3>
+    <p class="text-gray-400 mb-4">This will remove <span id="delete-friend-name" class="text-white font-medium"></span> and all your messages with them.</p>
+    <div class="flex gap-3"><button id="cancel-delete" class="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-colors">Cancel</button> <button id="confirm-delete" class="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white py-3 rounded-lg font-medium transition-all">Delete</button>
+    </div>
+   </div>
+  </div><!-- Game Invitation Modal -->
+  <div id="game-invite-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+   <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 w-full max-w-md mx-4 shadow-2xl border border-white/10 animate-slide">
+    <h3 class="text-2xl font-bold text-white mb-2">Game Invitation</h3>
+    <p id="game-invite-text" class="text-gray-400 mb-6"></p>
+    <div class="flex gap-3">
+     <button id="decline-game" class="flex-1 bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-colors">Decline</button> <button id="accept-game" class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white py-3 rounded-lg font-medium transition-all">Accept</button>
+    </div>
+   </div><!-- Incoming Call Notification (Side Panel) -->
+   <div id="call-notification" class="fixed right-4 top-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg shadow-2xl p-4 z-50 hidden border border-green-300 animate-slide max-w-xs">
+    <p class="text-white font-semibold mb-3"><span id="caller-name"></span> is calling...</p>
+    <div class="flex gap-2"><button id="decline-call" class="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-bold text-sm transition-all">Decline</button> <button id="accept-call" class="flex-1 bg-white hover:bg-gray-100 text-green-600 py-2 rounded-lg font-bold text-sm transition-all">Accept</button>
+    </div>
+   </div><!-- Active Call UI (Bottom Right Corner) -->
+   <div id="call-active" class="fixed bottom-4 right-4 bg-gradient-to-br from-green-600 to-emerald-700 rounded-lg shadow-2xl p-4 z-50 hidden border border-green-400 min-w-max">
+    <div class="flex items-center gap-3">
+     <div class="flex-1">
+      <p class="text-white font-semibold"><span id="active-call-name"></span></p>
+      <p id="call-timer" class="text-green-100 text-sm font-mono">00:00</p>
+     </div><button id="hang-up-btn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm transition-all">Hang Up</button>
+    </div>
+   </div>
+   <div id="game-selection-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl border border-white/10 animate-slide">
+     <h3 class="text-xl font-bold text-white mb-4">Choose a Game</h3>
+     <div class="space-y-2">
+      <button id="select-chess" class="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-all flex items-center gap-2 justify-center">?? Chess</button> <button id="select-parkour" class="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-all flex items-center gap-2 justify-center">? Parkour</button> <button id="select-minecraft" class="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-all flex items-center gap-2 justify-center">?? Minecraft</button> <button id="select-arena" class="w-full bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg font-medium transition-all flex items-center gap-2 justify-center">?? Arena Battle</button>
+     </div><button id="cancel-game-selection" class="w-full mt-4 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium transition-colors">Cancel</button>
+    </div>
+   </div><!-- Game Container -->
+   <div id="game-container" class="fixed inset-0 bg-black/90 z-40 hidden flex items-center justify-center">
+    <div class="w-full h-full flex flex-col">
+     <!-- Mini Chat Window -->
+     <div id="game-chat-window" class="fixed bottom-4 right-4 w-72 h-80 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-white/20 flex flex-col shadow-2xl z-50">
+      <div class="flex items-center justify-between p-3 border-b border-white/20">
+       <h4 class="text-sm font-bold text-white">Chat</h4><button id="leave-game-btn" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-xs font-medium transition-all">Leave Game</button>
+      </div>
+      <div id="game-messages-container" class="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2"></div>
+      <form id="game-message-form" class="p-3 border-t border-white/20 flex gap-2">
+       <input type="text" id="game-message-input" placeholder="Message..." class="flex-1 bg-white/10 text-white placeholder-gray-400 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"> <button type="submit" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded text-sm font-medium transition-all">Send</button>
+      </form>
+     </div><!-- Game Content -->
+     <div id="game-content" class="flex-1 flex items-center justify-center"></div>
+    </div>
+   </div>
+   <script>
+    // Default configuration
+    const defaultConfig = {
+      app_title: 'Friend Chat',
+      your_name: 'You',
+      background_color: '#1a1a2e',
+      surface_color: '#2d3748',
+      text_color: '#ffffff',
+      primary_action: '#667eea',
+      secondary_action: '#10b981'
+    };
+
+    // State
+    let allData = [];
+    let selectedFriendId = null;
+    let selectedColor = 'from-pink-500 to-rose-500';
+    let isProcessing = false;
+    let currentUser = null;
+    let messageLimit = 1000;
+    let activeGame = null;
+    let gameInvitePending = null;
+    let selectedGameType = null;
+    let activeCall = null;
+    let callInvitePending = null;
+    let callDuration = 0;
+    let callTimerInterval = null;
+    let isMuted = false;
+    const gameState = {
+      chess: { board: null, turn: 'white', moves: [] },
+      minecraft: { playerPos: { x: 5, y: 5 }, blocks: [], score: 0 },
+      parkour: { playerPos: { x: 250, y: 300 }, platforms: [], score: 0, velocity: 0 },
+      arena: { playerPos: { x: 400, y: 300 }, enemyPos: { x: 800, y: 300 }, playerHp: 100, enemyHp: 100, score: 0 }
+    };
+
+    // DOM Elements
+    const authView = document.getElementById('auth-view');
+    const chatApp = document.getElementById('chat-app');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const showRegisterBtn = document.getElementById('show-register');
+    const showLoginBtn = document.getElementById('show-login');
+    const loginFormContainer = document.getElementById('login-form-container');
+    const registerFormContainer = document.getElementById('register-form-container');
+    const loginError = document.getElementById('login-error');
+    const registerError = document.getElementById('register-error');
+    const registerColorOptions = document.getElementById('register-color-options');
+    const logoutBtn = document.getElementById('logout-btn');
+    const currentUserSpan = document.getElementById('current-user');
+    const appTitle = document.getElementById('app-title');
+    const friendsList = document.getElementById('friends-list');
+    const noFriends = document.getElementById('no-friends');
+    const noChatSelected = document.getElementById('no-chat-selected');
+    const storageLimitReached = document.getElementById('storage-limit-reached');
+    const chatView = document.getElementById('chat-view');
+    const chatHeader = document.getElementById('chat-header');
+    const chatAvatar = document.getElementById('chat-avatar');
+    const chatName = document.getElementById('chat-name');
+    const messagesContainer = document.getElementById('messages-container');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const addFriendBtn = document.getElementById('add-friend-btn');
+    const addFriendModal = document.getElementById('add-friend-modal');
+    const addFriendForm = document.getElementById('add-friend-form');
+    const friendNameInput = document.getElementById('friend-name-input');
+    const cancelAddFriend = document.getElementById('cancel-add-friend');
+    const deleteFriendBtn = document.getElementById('delete-friend-btn');
+    const deleteConfirm = document.getElementById('delete-confirm');
+    const deleteFriendName = document.getElementById('delete-friend-name');
+    const cancelDelete = document.getElementById('cancel-delete');
+    const confirmDelete = document.getElementById('confirm-delete');
+    const searchFriends = document.getElementById('search-friends');
+    const backBtn = document.getElementById('back-btn');
+    const storageBar = document.getElementById('storage-bar');
+    const storageCount = document.getElementById('storage-count');
+    const storageWarning = document.getElementById('storage-warning');
+    const mainContent = document.getElementById('main-content');
+
+    // Game elements
+    const gamesBtn = document.getElementById('games-btn');
+    const gameInviteModal = document.getElementById('game-invite-modal');
+    const gameSelectionModal = document.getElementById('game-selection-modal');
+    const gameContainer = document.getElementById('game-container');
+    const gameContent = document.getElementById('game-content');
+    const gameChatWindow = document.getElementById('game-chat-window');
+    const gameMessagesContainer = document.getElementById('game-messages-container');
+    const gameMessageForm = document.getElementById('game-message-form');
+    const gameMessageInput = document.getElementById('game-message-input');
+    const leaveGameBtn = document.getElementById('leave-game-btn');
+    const declineGameBtn = document.getElementById('decline-game');
+    const acceptGameBtn = document.getElementById('accept-game');
+    const gameInviteText = document.getElementById('game-invite-text');
+
+    // Call elements
+    const callBtn = document.getElementById('call-btn');
+    const callStatus = document.getElementById('call-status');
+    const callNotification = document.getElementById('call-notification');
+    const callerName = document.getElementById('caller-name');
+    const callActive = document.getElementById('call-active');
+    const activeCallName = document.getElementById('active-call-name');
+    const callTimerElement = document.getElementById('call-timer');
+    const declineCallBtn = document.getElementById('decline-call');
+    const acceptCallBtn = document.getElementById('accept-call');
+    const hangUpBtn = document.getElementById('hang-up-btn');
+
+    // Helper functions
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    function hashPassword(password) {
+      return btoa(password);
+    }
+
+    function getUsers() {
+      return allData.filter(item => item.type === 'user');
+    }
+
+    function getConversationId(otherUsername) {
+      if (!currentUser) return null;
+      const usernames = [currentUser.username, otherUsername].sort();
+      return `${usernames[0]}__${usernames[1]}`;
+    }
+
+    function getContacts() {
+      if (!currentUser) return [];
+      const messages = allData.filter(item => item.type === 'message');
+      const contactUsernames = new Set();
+      
+      messages.forEach(msg => {
+        if (msg.sender_username === currentUser.username) {
+          contactUsernames.add(msg.conversation_id.replace(`${currentUser.username}__`, '').replace(`__${currentUser.username}`, ''));
+        } else if (msg.conversation_id.includes(currentUser.username)) {
+          contactUsernames.add(msg.sender_username);
+        }
+      });
+
+      const contacts = [];
+      const seenUsernames = new Set();
+      
+      contactUsernames.forEach(username => {
+        if (!seenUsernames.has(username)) {
+          const user = getUsers().find(u => u.username === username);
+          if (user) {
+            contacts.push({ ...user, username: username });
+            seenUsernames.add(username);
+          }
+        }
+      });
+
+      return contacts;
+    }
+
+    function getMessages(otherUsername) {
+      if (!currentUser) return [];
+      const conversationId = getConversationId(otherUsername);
+      return allData
+        .filter(item => item.type === 'message' && item.conversation_id === conversationId)
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    }
+
+    function updateStorageBar() {
+      const userMessages = allData.filter(item => item.type === 'message' && item.sender_username === currentUser?.username);
+      const count = userMessages.length;
+      const percentage = Math.min((count / messageLimit) * 100, 100);
+      
+      storageBar.style.width = percentage + '%';
+      storageCount.textContent = `${count}/${messageLimit} messages`;
+      
+      if (percentage >= 80) {
+        storageWarning.classList.remove('hidden');
+        if (count >= messageLimit) {
+          mainContent.classList.add('hidden');
+          storageLimitReached.classList.remove('hidden');
+        }
+      } else {
+        storageWarning.classList.add('hidden');
+        mainContent.classList.remove('hidden');
+        storageLimitReached.classList.add('hidden');
+      }
+    }
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays === 1) {
+        return 'Yesterday';
+      } else if (diffDays < 7) {
+        return date.toLocaleDateString([], { weekday: 'short' });
+      }
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    // Game functions
+    function initChess() {
+      const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR';
+      gameState.chess = { board: fenToBoard(fen), turn: 'white', moves: [] };
+      renderChessGame();
+    }
+
+    function fenToBoard(fen) {
+      const board = [];
+      const rows = fen.split('/');
+      rows.forEach(row => {
+        const boardRow = [];
+        for (let char of row) {
+          if (isNaN(char)) {
+            boardRow.push(char);
+          } else {
+            for (let i = 0; i < parseInt(char); i++) {
+              boardRow.push('.');
+            }
+          }
+        }
+        board.push(boardRow);
+      });
+      return board;
+    }
+
+    function renderChessGame() {
+      gameContent.innerHTML = `
+        <div class="flex flex-col items-center gap-4">
+          <h2 class="text-2xl font-bold text-white">?? Chess</h2>
+          <div class="game-board" style="grid-template-columns: repeat(8, 50px);">
+            ${gameState.chess.board.map((row, ri) => row.map((piece, ci) => `
+              <div class="w-12 h-12 flex items-center justify-center cursor-pointer text-2xl transition-all hover:bg-yellow-500/30 rounded" style="background-color: ${(ri + ci) % 2 === 0 ? '#f0d9b5' : '#b58863'}">
+                <span class="chess-piece">${piece !== '.' ? piece : ''}</span>
+              </div>
+            `).join('')).join('')}
+          </div>
+          <p class="text-white text-lg">Turn: <span class="font-bold capitalize">${gameState.chess.turn}</span></p>
+        </div>
+      `;
+    }
+
+    function initMinecraft() {
+      gameState.minecraft = { playerPos: { x: 5, y: 5 }, blocks: generateMineBlocks(), score: 0 };
+      renderMinecraftGame();
+    }
+
+    function generateMineBlocks() {
+      const blocks = [];
+      for (let i = 0; i < 50; i++) {
+        blocks.push({
+          x: Math.floor(Math.random() * 12),
+          y: Math.floor(Math.random() * 10),
+          type: Math.random() > 0.7 ? 'diamond' : 'stone'
+        });
+      }
+      return blocks;
+    }
+
+    function renderMinecraftGame() {
+      const gridSize = 40;
+      gameContent.innerHTML = `
+        <div class="flex flex-col items-center gap-4">
+          <h2 class="text-2xl font-bold text-white">?? Minecraft</h2>
+          <div id="minecraft-grid" class="relative" style="width: ${12 * gridSize}px; height: ${10 * gridSize}px; background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%); border: 3px solid white;">
+            ${gameState.minecraft.blocks.map((block, i) => `
+              <div class="absolute w-10 h-10 flex items-center justify-center text-2xl cursor-pointer hover:scale-110 transition-transform" 
+                   style="left: ${block.x * gridSize}px; top: ${block.y * gridSize}px;" 
+                   onclick="mineBlock(${i})">
+                ${block.type === 'diamond' ? '?' : '?'}
+              </div>
+            `).join('')}
+            <div class="absolute w-10 h-10 flex items-center justify-center text-3xl" style="left: ${gameState.minecraft.playerPos.x * gridSize}px; top: ${gameState.minecraft.playerPos.y * gridSize}px;">?</div>
+          </div>
+          <p class="text-white text-lg">Score: <span class="font-bold">${gameState.minecraft.score}</span></p>
+        </div>
+      `;
+    }
+
+    function mineBlock(index) {
+      const block = gameState.minecraft.blocks[index];
+      gameState.minecraft.score += block.type === 'diamond' ? 10 : 1;
+      gameState.minecraft.blocks.splice(index, 1);
+      renderMinecraftGame();
+    }
+
+    function initParkour() {
+      gameState.parkour = { 
+        playerPos: { x: 250, y: 500 }, 
+        platforms: generateParkourPlatforms(),
+        score: 0,
+        velocity: 0,
+        jumping: false
+      };
+      renderParkourGame();
+      startParkourGameLoop();
+    }
+
+    function generateParkourPlatforms() {
+      const platforms = [];
+      for (let i = 0; i < 15; i++) {
+        platforms.push({
+          x: i * 120 + 50,
+          y: 300 + Math.random() * 200,
+          width: 80 + Math.random() * 40,
+          height: 15
+        });
+      }
+      return platforms;
+    }
+
+    function renderParkourGame() {
+      gameContent.innerHTML = `
+        <div class="flex flex-col items-center gap-4">
+          <h2 class="text-2xl font-bold text-white">? Parkour</h2>
+          <div id="parkour-game" class="relative" style="width: 1000px; height: 600px; background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 100%); border: 3px solid white; overflow: hidden;">
+            ${gameState.parkour.platforms.map((p, i) => `
+              <div class="absolute bg-green-600 rounded" style="left: ${p.x}px; top: ${p.y}px; width: ${p.width}px; height: ${p.height}px;"></div>
+            `).join('')}
+            <div class="absolute text-4xl" style="left: ${gameState.parkour.playerPos.x}px; top: ${gameState.parkour.playerPos.y}px; transition: all 0.1s;">?</div>
+          </div>
+          <p class="text-white text-lg">Score: <span class="font-bold">${gameState.parkour.score}</span></p>
+          <p class="text-gray-300 text-sm">Press SPACE to jump  Use ARROW KEYS to move</p>
+        </div>
+      `;
+    }
+
+    function startParkourGameLoop() {
+      const gameLoop = setInterval(() => {
+        if (!activeGame) {
+          clearInterval(gameLoop);
+          return;
+        }
+        
+        gameState.parkour.velocity += 0.5;
+        gameState.parkour.playerPos.y += gameState.parkour.velocity;
+        gameState.parkour.score += 1;
+
+        if (gameState.parkour.playerPos.y > 600) {
+          endGame('You fell!');
+          clearInterval(gameLoop);
+          return;
+        }
+
+        const onPlatform = gameState.parkour.platforms.some(p => 
+          gameState.parkour.playerPos.x + 20 >= p.x &&
+          gameState.parkour.playerPos.x + 20 <= p.x + p.width &&
+          gameState.parkour.playerPos.y + 40 >= p.y &&
+          gameState.parkour.playerPos.y + 40 <= p.y + p.height + 10
+        );
+
+        if (onPlatform && gameState.parkour.velocity > 0) {
+          gameState.parkour.velocity = 0;
+        }
+
+        renderParkourGame();
+      }, 50);
+    }
+
+    function initArena() {
+      gameState.arena = { 
+        playerPos: { x: 100, y: 300 }, 
+        enemyPos: { x: 700, y: 300 }, 
+        playerHp: 100, 
+        enemyHp: 100,
+        score: 0 
+      };
+      renderArenaGame();
+      startArenaGameLoop();
+    }
+
+    function renderArenaGame() {
+      gameContent.innerHTML = `
+        <div class="flex flex-col items-center gap-4">
+          <h2 class="text-2xl font-bold text-white">?? Arena Battle</h2>
+          <div id="arena-game" class="relative" style="width: 800px; height: 400px; background: #8B4513; border: 3px solid white;">
+            <div class="absolute text-5xl" style="left: ${gameState.arena.playerPos.x}px; top: ${gameState.arena.playerPos.y}px;">?</div>
+            <div class="absolute text-5xl" style="left: ${gameState.arena.enemyPos.x}px; top: ${gameState.arena.enemyPos.y}px;">?</div>
+          </div>
+          <div class="flex gap-8 text-white">
+            <div>You: <span class="font-bold text-green-400">${gameState.arena.playerHp}%</span></div>
+            <div>Enemy: <span class="font-bold text-red-400">${gameState.arena.enemyHp}%</span></div>
+            <div>Score: <span class="font-bold">${gameState.arena.score}</span></div>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="attackEnemy()" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-bold">?? Attack</button>
+            <button onclick="blockAttack()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">?? Block</button>
+          </div>
+          <p class="text-gray-300 text-sm">Use Attack and Block buttons</p>
+        </div>
+      `;
+    }
+
+    function attackEnemy() {
+      const hit = Math.random();
+      if (hit > 0.3) {
+        gameState.arena.enemyHp -= Math.random() * 15;
+        gameState.arena.score += 10;
+      }
+      
+      if (gameState.arena.enemyHp <= 0) {
+        endGame('You won! ?');
+        return;
+      }
+
+      setTimeout(enemyAttack, 500);
+      renderArenaGame();
+    }
+
+    function blockAttack() {
+      gameState.arena.playerHp = Math.min(100, gameState.arena.playerHp + 5);
+      gameState.arena.score += 5;
+      setTimeout(enemyAttack, 500);
+      renderArenaGame();
+    }
+
+    function enemyAttack() {
+      const hit = Math.random();
+      if (hit > 0.4) {
+        gameState.arena.playerHp -= Math.random() * 12;
+      }
+      
+      if (gameState.arena.playerHp <= 0) {
+        endGame('Game Over! ?');
+        return;
+      }
+
+      renderArenaGame();
+    }
+
+    function endGame(message) {
+      activeGame = null;
+      showGameToast(message);
+      setTimeout(() => {
+        leaveGame();
+      }, 2000);
+    }
+
+    function leaveGame() {
+      activeGame = null;
+      selectedGameType = null;
+      gameContainer.classList.add('hidden');
+      chatView.classList.remove('hidden');
+      gameMessagesContainer.innerHTML = '';
+    }
+
+    function showGameToast(message) {
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/90 text-white px-8 py-6 rounded-lg shadow-lg z-50 text-2xl font-bold animate-slide';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Event listeners - Games
+    gamesBtn.addEventListener('click', () => {
+      if (!selectedFriendId) {
+        showToast('Select a friend first');
+        return;
+      }
+      const contacts = getContacts();
+      const friend = contacts.find(c => c.username === selectedFriendId);
+      if (!friend) {
+        showToast('Friend not found');
+        return;
+      }
+      gameSelectionModal.classList.remove('hidden');
+    });
+
+    document.getElementById('select-chess').addEventListener('click', () => {
+      sendGameInvite('chess');
+    });
+
+    document.getElementById('select-parkour').addEventListener('click', () => {
+      sendGameInvite('parkour');
+    });
+
+    document.getElementById('select-minecraft').addEventListener('click', () => {
+      sendGameInvite('minecraft');
+    });
+
+    document.getElementById('select-arena').addEventListener('click', () => {
+      sendGameInvite('arena');
+    });
+
+    document.getElementById('cancel-game-selection').addEventListener('click', () => {
+      gameSelectionModal.classList.add('hidden');
+    });
+
+    function sendGameInvite(gameType) {
+      gameSelectionModal.classList.add('hidden');
+      gameInviteText.textContent = `${chatName.textContent} invited you to play ${gameType.charAt(0).toUpperCase() + gameType.slice(1)}!`;
+      gameInvitePending = gameType;
+      gameInviteModal.classList.remove('hidden');
+    }
+
+    acceptGameBtn.addEventListener('click', () => {
+      gameInviteModal.classList.add('hidden');
+      startGame(gameInvitePending);
+    });
+
+    declineGameBtn.addEventListener('click', () => {
+      gameInviteModal.classList.add('hidden');
+      showGameToast('Game declined ?');
+    });
+
+    declineCallBtn.addEventListener('click', () => {
+      callNotification.classList.add('hidden');
+      showGameToast('Call declined ?');
+    });
+
+    acceptCallBtn.addEventListener('click', () => {
+      startCall();
+    });
+
+    hangUpBtn.addEventListener('click', () => {
+      endCall();
+    });
+
+    callBtn.addEventListener('click', () => {
+      if (!selectedFriendId) {
+        showToast('Select a friend first');
+        return;
+      }
+      callStatus.textContent = 'Calling...';
+      sendCallInvite();
+    });
+
+    leaveGameBtn.addEventListener('click', () => {
+      leaveGame();
+    });
+
+    gameMessageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = gameMessageInput.value.trim();
+      if (!content || !selectedFriendId || !currentUser) return;
+
+      gameMessageInput.value = '';
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'bg-purple-500/50 rounded px-3 py-2 text-white text-sm';
+      msgEl.textContent = `You: ${content}`;
+      gameMessagesContainer.appendChild(msgEl);
+      gameMessagesContainer.scrollTop = gameMessagesContainer.scrollHeight;
+
+      const conversationId = getConversationId(selectedFriendId);
+      await window.dataSdk.create({
+        type: 'message',
+        username: '',
+        password: '',
+        name: '',
+        avatar: '',
+        content: content,
+        sender_username: currentUser.username,
+        timestamp: new Date().toISOString(),
+        conversation_id: conversationId,
+        user_1_username: currentUser.username,
+        user_2_username: selectedFriendId
+      });
+    });
+
+    function startGame(gameType) {
+      activeGame = gameType;
+      selectedGameType = gameType;
+      chatView.classList.add('hidden');
+      gameContainer.classList.remove('hidden');
+      gameMessagesContainer.innerHTML = '';
+
+      switch(gameType) {
+        case 'chess':
+          initChess();
+          break;
+        case 'minecraft':
+          initMinecraft();
+          break;
+        case 'parkour':
+          initParkour();
+          break;
+        case 'arena':
+          initArena();
+          break;
+      }
+    }
+
+    // Call functions
+    let jitsiAPI = null;
+
+    function sendCallInvite() {
+      callerName.textContent = chatName.textContent;
+      callInvitePending = selectedFriendId;
+      callNotification.classList.remove('hidden');
+      
+      // Simulate friend accepting after 3-5 seconds
+      setTimeout(() => {
+        if (callInvitePending === selectedFriendId && callNotification.classList.contains('hidden') === false) {
+          startCall();
+        }
+      }, 3000 + Math.random() * 2000);
+    }
+
+    function startCall() {
+      activeCall = selectedFriendId;
+      callNotification.classList.add('hidden');
+      activeCallName.textContent = chatName.textContent;
+      callActive.classList.remove('hidden');
+      callStatus.textContent = 'In call';
+      
+      callDuration = 0;
+      updateCallTimer();
+      callTimerInterval = setInterval(updateCallTimer, 1000);
+      
+      // Start Jitsi call
+      initializeJitsiCall();
+    }
+
+    function initializeJitsiCall() {
+      const roomName = `${currentUser.username}-${selectedFriendId}-${Date.now()}`;
+      
+      const options = {
+        roomName: roomName,
+        width: 400,
+        height: 300,
+        parentNode: document.querySelector('#jitsi-container') || document.body,
+        configOverrides: {
+          disableSimulcast: false
+        },
+        interfaceConfigOverrides: {
+          MOBILE_APP_PROMO: false,
+          SHOW_PROMOTIONAL_CLOSE_PAGE: false,
+          TOOLBAR_BUTTONS: ['microphone', 'camera', 'hangup', 'chat']
+        }
+      };
+
+      const jitsiContainerDiv = document.createElement('div');
+      jitsiContainerDiv.id = 'jitsi-container';
+      jitsiContainerDiv.style.display = 'none';
+      document.body.appendChild(jitsiContainerDiv);
+
+      jitsiAPI = new JitsiMeetExternalAPI('meet.jitsi.org', options);
+
+      jitsiAPI.addEventListener('videoConferenceJoined', () => {
+        console.log('Joined call');
+      });
+
+      jitsiAPI.addEventListener('videoConferenceLocked', () => {
+        console.log('Call locked');
+      });
+
+      jitsiAPI.addEventListener('videoConferenceLeft', () => {
+        endCall();
+      });
+    }
+
+    function updateCallTimer() {
+      callDuration++;
+      const minutes = Math.floor(callDuration / 60);
+      const seconds = callDuration % 60;
+      document.getElementById('call-timer').textContent = 
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function endCall() {
+      activeCall = null;
+      callInvitePending = null;
+      callNotification.classList.add('hidden');
+      callActive.classList.add('hidden');
+      callStatus.textContent = 'Online';
+      if (callTimerInterval) {
+        clearInterval(callTimerInterval);
+        callTimerInterval = null;
+      }
+      if (jitsiAPI) {
+        jitsiAPI.dispose();
+        jitsiAPI = null;
+        const container = document.getElementById('jitsi-container');
+        if (container) container.remove();
+      }
+      showGameToast('Call ended');
+    }
+
+    // Event listeners - Auth
+    showRegisterBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      loginFormContainer.classList.add('hidden');
+      registerFormContainer.classList.remove('hidden');
+      return false;
+    });
+
+    showLoginBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      loginFormContainer.classList.remove('hidden');
+      registerFormContainer.classList.add('hidden');
+      return false;
+    });
+
+    registerColorOptions.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const btn = e.target.closest('button[data-color]');
+      if (btn) {
+        selectedColor = btn.dataset.color;
+        registerColorOptions.querySelectorAll('button').forEach(b => {
+          b.classList.remove('ring-2', 'ring-white', 'ring-offset-2', 'ring-offset-gray-800');
+          b.classList.add('hover:ring-2', 'hover:ring-white/50');
+        });
+        btn.classList.remove('hover:ring-2', 'hover:ring-white/50');
+        btn.classList.add('ring-2', 'ring-white', 'ring-offset-2', 'ring-offset-gray-800');
+      }
+      return false;
+    });
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+      
+      if (!username || !password) return;
+
+      const hashedPassword = hashPassword(password);
+      const user = getUsers().find(u => u.username === username && u.password === hashedPassword);
+      
+      if (user) {
+        currentUser = user;
+        currentUserSpan.textContent = `@${user.username}`;
+        authView.classList.add('hidden');
+        chatApp.classList.remove('hidden');
+        loginForm.reset();
+        loginError.classList.add('hidden');
+        updateStorageBar();
+        renderFriendsList();
+      } else {
+        loginError.textContent = 'Invalid username or password';
+        loginError.classList.remove('hidden');
+      }
+    });
+
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const confirmBtn = document.querySelector('#register-form button[type="submit"]');
+      
+      const name = document.getElementById('register-name').value.trim();
+      const username = document.getElementById('register-username').value.trim();
+      const password = document.getElementById('register-password').value.trim();
+      
+      // Validate inputs
+      if (!name || !username || !password) {
+        registerError.textContent = 'Please fill in all fields';
+        registerError.classList.remove('hidden');
+        return;
+      }
+
+      // Check if username exists
+      const existingUser = getUsers().find(u => u.username === username);
+      if (existingUser) {
+        registerError.textContent = 'Username already taken';
+        registerError.classList.remove('hidden');
+        return;
+      }
+
+      // Disable button and show loading state
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Creating...';
+      registerError.classList.add('hidden');
+
+      try {
+        const hashedPassword = hashPassword(password);
+        const result = await window.dataSdk.create({
+          type: 'user',
+          username: username,
+          password: hashedPassword,
+          name: name,
+          avatar: selectedColor,
+          content: '',
+          sender: '',
+          timestamp: new Date().toISOString(),
+          chat_id: '',
+          user_id: ''
+        });
+
+        if (result.isOk) {
+          registerForm.reset();
+          registerError.classList.add('hidden');
+          switchToLoginForm();
+          document.getElementById('login-username').value = username;
+          document.getElementById('login-password').focus();
+        } else {
+          registerError.textContent = result.error?.message || 'Failed to create account. Try again.';
+          registerError.classList.remove('hidden');
+        }
+      } catch (err) {
+        registerError.textContent = 'An error occurred. Please try again.';
+        registerError.classList.remove('hidden');
+      } finally {
+        // Always reset button
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Create Account';
+      }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+      currentUser = null;
+      selectedFriendId = null;
+      currentUserSpan.textContent = '';
+      authView.classList.remove('hidden');
+      chatApp.classList.add('hidden');
+      loginForm.reset();
+      switchToLoginForm();
+      messagesContainer.innerHTML = '';
+    });
+
+    // Event listeners - Chat
+    addFriendBtn.addEventListener('click', () => {
+      addFriendModal.classList.remove('hidden');
+      friendNameInput.focus();
+    });
+
+    cancelAddFriend.addEventListener('click', () => {
+      addFriendModal.classList.add('hidden');
+      friendNameInput.value = '';
+    });
+
+    addFriendModal.addEventListener('click', (e) => {
+      if (e.target === addFriendModal) {
+        addFriendModal.classList.add('hidden');
+        friendNameInput.value = '';
+      }
+    });
+
+    addFriendForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const friendUsername = friendNameInput.value.trim();
+      if (!friendUsername || isProcessing || !currentUser) return;
+
+      const targetUser = getUsers().find(u => u.username === friendUsername);
+      if (!targetUser) {
+        showToast('User not found. Make sure the username is correct.');
+        return;
+      }
+
+      if (friendUsername === currentUser.username) {
+        showToast('You cannot message yourself!');
+        return;
+      }
+
+      isProcessing = true;
+      const confirmBtn = document.getElementById('confirm-add-friend');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Adding...';
+
+      const conversationId = getConversationId(friendUsername);
+      const result = await window.dataSdk.create({
+        type: 'message',
+        username: '',
+        password: '',
+        name: '',
+        avatar: '',
+        content: '? Started a conversation',
+        sender_username: currentUser.username,
+        timestamp: new Date().toISOString(),
+        conversation_id: conversationId,
+        user_1_username: currentUser.username,
+        user_2_username: friendUsername
+      });
+
+      if (result.isOk) {
+        addFriendModal.classList.add('hidden');
+        friendNameInput.value = '';
+      } else {
+        showToast('Failed to start conversation. Please try again.');
+      }
+
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Add Friend';
+      isProcessing = false;
+    });
+
+    messageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = messageInput.value.trim();
+      if (!content || !selectedFriendId || isProcessing || !currentUser) return;
+
+      const userMessages = allData.filter(item => item.type === 'message' && item.sender_username === currentUser.username);
+      if (userMessages.length >= messageLimit) {
+        showToast('Storage limit reached. Delete messages to continue.');
+        return;
+      }
+
+      isProcessing = true;
+      sendBtn.disabled = true;
+      messageInput.value = '';
+
+      const conversationId = getConversationId(selectedFriendId);
+      const result = await window.dataSdk.create({
+        type: 'message',
+        username: '',
+        password: '',
+        name: '',
+        avatar: '',
+        content: content,
+        sender_username: currentUser.username,
+        timestamp: new Date().toISOString(),
+        conversation_id: conversationId,
+        user_1_username: currentUser.username,
+        user_2_username: selectedFriendId
+      });
+
+      if (!result.isOk) {
+        messageInput.value = content;
+        showToast('Failed to send message. Please try again.');
+      }
+
+      sendBtn.disabled = false;
+      isProcessing = false;
+    });
+
+    deleteFriendBtn.addEventListener('click', () => {
+      const contacts = getContacts();
+      const friend = contacts.find(f => f.username === selectedFriendId);
+      if (friend) {
+        deleteFriendName.textContent = friend.name;
+        deleteConfirm.classList.remove('hidden');
+      }
+    });
+
+    cancelDelete.addEventListener('click', () => {
+      deleteConfirm.classList.add('hidden');
+    });
+
+    deleteConfirm.addEventListener('click', (e) => {
+      if (e.target === deleteConfirm) {
+        deleteConfirm.classList.add('hidden');
+      }
+    });
+
+    confirmDelete.addEventListener('click', async () => {
+      if (isProcessing || !currentUser) return;
+      
+      isProcessing = true;
+      confirmDelete.disabled = true;
+      confirmDelete.textContent = 'Deleting...';
+
+      const messages = getMessages(selectedFriendId);
+
+      for (const msg of messages) {
+        await window.dataSdk.delete(msg);
+      }
+
+      deleteConfirm.classList.add('hidden');
+      confirmDelete.disabled = false;
+      confirmDelete.textContent = 'Delete';
+      isProcessing = false;
+      selectedFriendId = null;
+      noChatSelected.classList.remove('hidden');
+      chatView.classList.add('hidden');
+    });
+
+    searchFriends.addEventListener('input', (e) => {
+      renderFriendsList(e.target.value);
+    });
+
+    backBtn.addEventListener('click', () => {
+      selectedFriendId = null;
+      noChatSelected.classList.remove('hidden');
+      chatView.classList.add('hidden');
+      renderFriendsList();
+    });
+
+    document.getElementById('manage-messages-btn').addEventListener('click', () => {
+      const contacts = getContacts();
+      if (contacts.length > 0) {
+        const friend = contacts[0];
+        deleteFriendName.textContent = friend.name;
+        deleteConfirm.classList.remove('hidden');
+      }
+    });
+
+    function renderFriendsList(searchTerm = '') {
+      const contacts = getContacts();
+      const filtered = searchTerm 
+        ? contacts.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        : contacts;
+      
+      noFriends.classList.toggle('hidden', filtered.length > 0);
+      
+      const existingElements = new Map();
+      friendsList.querySelectorAll('[data-contact-username]').forEach(el => {
+        existingElements.set(el.dataset.contactUsername, el);
+      });
+
+      filtered.forEach(contact => {
+        const messages = getMessages(contact.username);
+        const lastMessage = messages[messages.length - 1];
+        
+        let contactEl = existingElements.get(contact.username);
+        
+        if (contactEl) {
+          const nameEl = contactEl.querySelector('.friend-name');
+          const lastMsgEl = contactEl.querySelector('.last-message');
+          const timeEl = contactEl.querySelector('.message-time');
+          
+          if (nameEl) nameEl.textContent = contact.name;
+          if (lastMsgEl) lastMsgEl.textContent = lastMessage ? lastMessage.content : 'No messages yet';
+          if (timeEl) timeEl.textContent = lastMessage ? formatTime(lastMessage.timestamp) : '';
+          
+          contactEl.classList.toggle('bg-white/10', selectedFriendId === contact.username);
+          existingElements.delete(contact.username);
+        } else {
+          contactEl = document.createElement('div');
+          contactEl.dataset.contactUsername = contact.username;
+          contactEl.className = `friend-card flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all hover:bg-white/10 ${selectedFriendId === contact.username ? 'bg-white/10' : ''}`;
+          contactEl.innerHTML = `
+            <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white bg-gradient-to-br ${contact.avatar}">${contact.name.charAt(0).toUpperCase()}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="friend-name font-medium text-white truncate">${contact.name}</h3>
+                <span class="message-time text-xs text-gray-400 flex-shrink-0">${lastMessage ? formatTime(lastMessage.timestamp) : ''}</span>
+              </div>
+              <p class="last-message text-sm text-gray-400 truncate">${lastMessage ? lastMessage.content : 'No messages yet'}</p>
+            </div>
+          `;
+          
+          contactEl.addEventListener('click', () => {
+            selectFriend(contact.username, contact.name, contact.avatar);
+          });
+          friendsList.appendChild(contactEl);
+        }
+      });
+
+      existingElements.forEach(el => el.remove());
+    }
+
+    function renderMessages() {
+      if (!selectedFriendId) return;
+      
+      const messages = getMessages(selectedFriendId);
+      const config = window.elementSdk?.config || defaultConfig;
+      const yourName = config.your_name || defaultConfig.your_name;
+      
+      const wasAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 50;
+      
+      const existingElements = new Map();
+      messagesContainer.querySelectorAll('[data-message-id]').forEach(el => {
+        existingElements.set(el.dataset.messageId, el);
+      });
+
+      messages.forEach(msg => {
+        const isOutgoing = msg.sender_username === currentUser?.username;
+        let msgEl = existingElements.get(msg.__backendId);
+        
+        if (msgEl) {
+          const contentEl = msgEl.querySelector('.message-content');
+          const timeEl = msgEl.querySelector('.message-timestamp');
+          if (contentEl) contentEl.textContent = msg.content;
+          if (timeEl) timeEl.textContent = formatTime(msg.timestamp);
+          existingElements.delete(msg.__backendId);
+        } else {
+          msgEl = document.createElement('div');
+          msgEl.dataset.messageId = msg.__backendId;
+          msgEl.className = `flex ${isOutgoing ? 'justify-end' : 'justify-start'} animate-slide`;
+          msgEl.innerHTML = `
+            <div class="max-w-[75%] ${isOutgoing ? 'message-out' : 'message-in'} rounded-2xl px-4 py-2 ${isOutgoing ? 'rounded-br-md' : 'rounded-bl-md'}">
+              <p class="message-content text-white">${msg.content}</p>
+              <p class="message-timestamp text-xs ${isOutgoing ? 'text-white/60' : 'text-gray-400'} mt-1">${formatTime(msg.timestamp)}</p>
+            </div>
+          `;
+          messagesContainer.appendChild(msgEl);
+        }
+      });
+
+      existingElements.forEach(el => el.remove());
+      if (wasAtBottom) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+
+    function selectFriend(friendUsername, friendName, friendAvatar) {
+      selectedFriendId = friendUsername;
+      
+      if (friendUsername) {
+        noChatSelected.classList.add('hidden');
+        chatView.classList.remove('hidden');
+        chatName.textContent = friendName;
+        chatAvatar.textContent = friendName.charAt(0).toUpperCase();
+        chatAvatar.className = `w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white bg-gradient-to-br ${friendAvatar}`;
+        
+        messagesContainer.innerHTML = '';
+        renderMessages();
+        renderFriendsList();
+        messageInput.focus();
+      }
+    }
+
+    function switchToLoginForm() {
+      loginFormContainer.classList.remove('hidden');
+      registerFormContainer.classList.add('hidden');
+      loginError.classList.add('hidden');
+    }
+
+    function switchToRegisterForm() {
+      loginFormContainer.classList.add('hidden');
+      registerFormContainer.classList.remove('hidden');
+      registerError.classList.add('hidden');
+    }
+
+    const dataHandler = {
+      onDataChanged(data) {
+        allData = data;
+        
+        if (currentUser) {
+          updateStorageBar();
+          renderFriendsList(searchFriends.value);
+          
+          if (selectedFriendId) {
+            const contactStillExists = getContacts().find(c => c.username === selectedFriendId);
+            if (contactStillExists) {
+              renderMessages();
+            } else {
+              selectedFriendId = null;
+              noChatSelected.classList.remove('hidden');
+              chatView.classList.add('hidden');
+            }
+          }
+        }
+      }
+    };
+
+    async function onConfigChange(config) {
+      const title = config.app_title || defaultConfig.app_title;
+      appTitle.textContent = title;
+      document.title = title;
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [
+          {
+            get: () => config.background_color || defaultConfig.background_color,
+            set: (value) => { config.background_color = value; window.elementSdk.setConfig({ background_color: value }); }
+          }
+        ],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['app_title', config.app_title || defaultConfig.app_title],
+        ['your_name', config.your_name || defaultConfig.your_name]
+      ]);
+    }
+
+    // Toast notification
+    function showToast(message) {
+      const existing = document.querySelector('.toast-message');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = 'toast-message fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-slide';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Document-level event listeners for game controls
+    document.addEventListener('keydown', (e) => {
+      if (!activeGame) return;
+
+      if (activeGame === 'parkour') {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          if (!gameState.parkour.jumping) {
+            gameState.parkour.velocity = -15;
+            gameState.parkour.jumping = true;
+          }
+        } else if (e.code === 'ArrowLeft') {
+          gameState.parkour.playerPos.x = Math.max(0, gameState.parkour.playerPos.x - 20);
+        } else if (e.code === 'ArrowRight') {
+          gameState.parkour.playerPos.x = Math.min(1000, gameState.parkour.playerPos.x + 20);
+        }
+      }
+    });
+
+    // Initialize SDKs
+    async function init() {
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange,
+          mapToCapabilities,
+          mapToEditPanelValues
+        });
+      }
+
+      if (window.dataSdk) {
+        const result = await window.dataSdk.init(dataHandler);
+        if (!result.isOk) {
+          console.error('Failed to initialize data SDK');
+        }
+      }
+    }
+
+    init();
+  </script>
+   <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dadace1115ef501',t:'MTc3MzI2NDc4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+  </div>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9db6849ed4a4c694',t:'MTc3MzM1NzUwNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
